@@ -7,8 +7,7 @@ Settings used are saved with metadata, and restored from loading through the **P
 
 ---
 ## Advanced / Details ##
-Steps to start shuffling are selected as a proportion of the way through the diffusion process: 0.0 is the first step, 1.0 is last, 1.01 is never. 
-Each step from that point will receive a new shuffle.
+
 
 
 ---
