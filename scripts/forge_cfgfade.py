@@ -2,13 +2,11 @@ import gradio as gr
 
 from modules import scripts
 import modules.shared as shared
-from modules.prompt_parser import SdConditioning
 from modules.script_callbacks import on_cfg_denoiser, remove_current_script_callbacks
 import torch, math
-import torchvision.transforms.functional as TF
 
-##  hacked out of:
-######################### DynThresh Core #########################
+#import torchvision.transforms.functional as TF
+
 
 #   button to spit weighted cfg to console, better: gradio lineplot for display of weights
 
@@ -78,9 +76,10 @@ class CFGfadeForge(scripts.Script):
 
 
     def patch(self, model):
-        self.previousStep = None
-        self.limit = 1.6        #make adjustable
-        self.blur = 5           #make adjustable
+#   these vars fot slew limiting
+#        self.previousStep = None
+#        self.limit = 1.6        #make adjustable
+#        self.blur = 5           #make adjustable
 
         def sampler_cfgfade(args):
             cond = args["cond"]
@@ -90,15 +89,16 @@ class CFGfadeForge(scripts.Script):
             cond_scale *= self.weight
 
             if cond_scale < 1.0:
-                return cond
+                cond_scale = 1.0
+#                return cond
 
             thisStep = shared.state.sampling_step
             lastStep = shared.state.sampling_steps
 
+
 #   perp-neg here?
 
 #   reinhard tonemap from comfy
-#   changes too much? - unpredictable difference when enabled, so useless?
             noisePrediction = cond - uncond
             if self.reinhard != 0.0 and self.reinhard != cond_scale:
                 multiplier = 1.0 / cond_scale * self.reinhard
@@ -130,15 +130,15 @@ class CFGfadeForge(scripts.Script):
             del noisePrediction
 
 
-
 #subtract mean of result - seems like a free win
             if thisStep >= self.antidrfS * lastStep and thisStep < self.antidrfE * lastStep:
                 result -= result.mean(dim=(1, 2, 3), keepdim=True)
+#                result -= result.mean(dim=(2, 3), keepdim=True)
 
             return result
 
-#slew limiting, to restrict change from step to step? not same as reducing max sigma
 
+#slew limiting, to restrict change from step to step? not same as reducing max sigma
             if thisStep > 3 and self.previousStep != None:
                 rc = result
                 diff = result - self.previousStep
@@ -164,7 +164,7 @@ class CFGfadeForge(scripts.Script):
     def denoiser_callback(self, params):
         lastStep = params.total_sampling_steps
         thisStep = params.sampling_step
-        sigma = params.sigma
+        sigma = params.sigma[0]
         
         highStep = self.highStep * lastStep
         boostStep = self.boostStep * lastStep
