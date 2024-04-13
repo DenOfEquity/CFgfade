@@ -25,6 +25,7 @@ class CFGfadeForge(scripts.Script):
         self.minScale = 0.0
         self.reinhard = 1.0
         self.rfcgmult = 1.0
+        self.centreMean = False
 
 
     def title(self):
@@ -38,6 +39,7 @@ class CFGfadeForge(scripts.Script):
         with gr.Accordion(open=False, label=self.title()):
             with gr.Row():
                 enabled = gr.Checkbox(value=False, label='Enable modifications to CFG')
+                cntrMean = gr.Checkbox(value=False, label='centre conds to mean')
             with gr.Row():
                 reinhard = gr.Slider(minimum=0.0, maximum=16.0, step=0.5, value=0.0, label='Reinhard target CFG')
                 rcfgmult = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=0.0, label='RescaleCFG multiplier')
@@ -54,6 +56,7 @@ class CFGfadeForge(scripts.Script):
 
         self.infotext_fields = [
             (enabled, lambda d: enabled.update(value=("cfgfade_enabled" in d))),
+            (cntrMean, "cfgfade_cntrMean"),
             (boostStep, "cfgfade_boostStep"),
             (highStep, "cfgfade_highStep"),
             (maxScale, "cfgfade_maxScale"),
@@ -65,11 +68,11 @@ class CFGfadeForge(scripts.Script):
             (rcfgmult, "cfgfade_rcfgmult"),
         ]
 
-        return enabled, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowSigma, reinhard, rcfgmult
+        return enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowSigma, reinhard, rcfgmult
 
 
     def patch(self, model):
-#   these vars fot slew limiting
+#   these vars for slew limiting
 #        self.previousStep = None
 #        self.limit = 1.6        #make adjustable
 #        self.blur = 5           #make adjustable
@@ -82,8 +85,14 @@ class CFGfadeForge(scripts.Script):
             uncond = args["uncond"]
             cond_scale = args["cond_scale"]
 
-            cond_scale *= self.weight
+            if self.centreMean == True:     # better after, but value here too?
+                for b in range(len(cond)):
+                    for c in range(3):
+                        cond[b][c] -= cond[b][c].mean()
+                        uncond[b][c] -= uncond[b][c].mean()
 
+
+            cond_scale *= self.weight
             if cond_scale < 1.0:
                 cond_scale = 1.0
 #                return cond
@@ -93,6 +102,31 @@ class CFGfadeForge(scripts.Script):
 
 
 #   perp-neg here?
+
+#   heuristic scaling, reusing reinhard as target cfg
+##            noisePrediction = cond - uncond
+##            if self.reinhard != 0.0 and self.reinhard != cond_scale:
+##                #   using main CFG scale, potentially broken
+##                brok = uncond + cond_scale * noisePrediction
+##                #   using new input. set to known good level for model
+##                safe = uncond + self.reinhard * noisePrediction
+##
+##                #   center both on zero
+##                brokC = brok - brok.mean()
+##                safeC = safe - safe.mean()
+##
+##                #   calc 99.5% quartiles - make option/
+##                brokQ = torch.quantile(brokC.abs(), 0.995)
+##                safeQ = torch.quantile(safeC.abs(), 0.95)
+##
+##                #   scale risky output by ratio
+##                brok /= (safeQ / brokQ)
+##                return brok
+
+                ##better to scale range to match?
+#   end heuristic scaling
+
+
 
 #   reinhard tonemap from comfy
             noisePrediction = cond - uncond
@@ -196,13 +230,14 @@ class CFGfadeForge(scripts.Script):
         # This will be called before every sampling.
         # If you use highres fix, this will be called twice.
 
-        enabled, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowSigma, reinhard, rcfgmult = script_args
+        enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowSigma, reinhard, rcfgmult = script_args
 
         if not enabled:
             return
 
         self.actualCFG = params.cfg_scale
 
+        self.centreMean = cntrMean
         self.boostStep = boostStep
         self.highStep = highStep
         self.maxScale = maxScale
@@ -217,6 +252,7 @@ class CFGfadeForge(scripts.Script):
         # The extra_generation_params does not influence results.
         params.extra_generation_params.update(dict(
             cfgfade_enabled = enabled,
+            cfgfade_cntrMean = cntrMean,
             cfgfade_boostStep = boostStep,
             cfgfade_highStep = highStep,
             cfgfade_maxScale = maxScale,
