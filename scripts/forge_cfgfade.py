@@ -14,7 +14,6 @@ import torch, math
 
 class CFGfadeForge(scripts.Script):
     def __init__(self):
-        self.actualCFG = 0          #   dummy value
         self.weight = 1.0
         self.lowSigma = 0.0
         self.boostStep = 0.0
@@ -26,7 +25,8 @@ class CFGfadeForge(scripts.Script):
         self.reinhard = 1.0
         self.rfcgmult = 1.0
         self.centreMean = False
-
+        self.heuristic = 0
+        self.hStart = 0.0
 
     def title(self):
         return "CFG fade"
@@ -41,9 +41,12 @@ class CFGfadeForge(scripts.Script):
                 enabled = gr.Checkbox(value=False, label='Enable modifications to CFG')
                 cntrMean = gr.Checkbox(value=False, label='centre conds to mean')
             with gr.Row():
-                reinhard = gr.Slider(minimum=0.0, maximum=16.0, step=0.5, value=0.0, label='Reinhard target CFG')
-                rcfgmult = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=0.0, label='RescaleCFG multiplier')
-                lowSigma = gr.Slider(minimum=0.0, maximum=2.0, step=0.1, value=0.0, label='clamp CFG @ sigma')
+                heuristic = gr.Slider(minimum=0, maximum=16, step=0.5, value=0, label='Heuristic CFG')
+                hStart = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=0.0, label='start step')
+            with gr.Row():
+                reinhard = gr.Slider(minimum=0.0, maximum=16.0, step=0.5, value=0.0, label='Reinhard CFG')
+                rcfgmult = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=0.0, label='Rescale CFG')
+                lowSigma = gr.Slider(minimum=0.0, maximum=2.0, step=0.1, value=0.0, label='clamp CFG σ')
             with gr.Row():
                 boostStep = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=1.0, label='CFG boost start')
                 fadeStep = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=0.5, label='CFG fade start')
@@ -56,19 +59,21 @@ class CFGfadeForge(scripts.Script):
 
         self.infotext_fields = [
             (enabled, lambda d: enabled.update(value=("cfgfade_enabled" in d))),
-            (cntrMean, "cfgfade_cntrMean"),
+            (cntrMean,  "cfgfade_cntrMean"),
             (boostStep, "cfgfade_boostStep"),
-            (highStep, "cfgfade_highStep"),
-            (maxScale, "cfgfade_maxScale"),
-            (fadeStep, "cfgfade_fadeStep"),
-            (zeroStep, "cfgfade_zeroStep"),
-            (minScale, "cfgfade_minScale"),
-            (lowSigma, "cfgfade_lowSigma"),
-            (reinhard, "cfgfade_reinhard"),
-            (rcfgmult, "cfgfade_rcfgmult"),
+            (highStep,  "cfgfade_highStep"),
+            (maxScale,  "cfgfade_maxScale"),
+            (fadeStep,  "cfgfade_fadeStep"),
+            (zeroStep,  "cfgfade_zeroStep"),
+            (minScale,  "cfgfade_minScale"),
+            (lowSigma,  "cfgfade_lowSigma"),
+            (reinhard,  "cfgfade_reinhard"),
+            (rcfgmult,  "cfgfade_rcfgmult"),
+            (heuristic, "cfgfade_heuristic"),
+            (hStart,    "cfgfade_hStart"),
         ]
 
-        return enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowSigma, reinhard, rcfgmult
+        return enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowSigma, reinhard, rcfgmult, heuristic, hStart
 
 
     def patch(self, model):
@@ -97,37 +102,34 @@ class CFGfadeForge(scripts.Script):
                 cond_scale = 1.0
 #                return cond
 
-#            thisStep = shared.state.sampling_step
-#            lastStep = shared.state.sampling_steps
+            thisStep = shared.state.sampling_step
+            lastStep = shared.state.sampling_steps
 
 
 #   perp-neg here?
 
-#   heuristic scaling, reusing reinhard as target cfg
-##            noisePrediction = cond - uncond
-##            if self.reinhard != 0.0 and self.reinhard != cond_scale:
-##                #   using main CFG scale, potentially broken
-##                brok = uncond + cond_scale * noisePrediction
-##                #   using new input. set to known good level for model
-##                safe = uncond + self.reinhard * noisePrediction
-##
-##                #   center both on zero
-##                brokC = brok - brok.mean()
-##                safeC = safe - safe.mean()
-##
-##                #   calc 99.5% quartiles - make option/
-##                brokQ = torch.quantile(brokC.abs(), 0.995)
-##                safeQ = torch.quantile(safeC.abs(), 0.95)
-##
-##                #   scale risky output by ratio
-##                brok /= (safeQ / brokQ)
-##                return brok
+#   heuristic scaling, higher hcfg acts to boost contrast/detail/sharpness; low reduces; quantile has effect, but not significant for quality IMO
+            noisePrediction = cond - uncond
+            if self.heuristic != 0.0 and self.heuristic != cond_scale and thisStep >= self.hStart * lastStep:
+                base = uncond + cond_scale * noisePrediction
+                heur = uncond + self.heuristic * noisePrediction
 
-                ##better to scale range to match?
-#   end heuristic scaling
+                #   center both on zero
+                baseC = base - base.mean()
+                heurC = heur - heur.mean()
+                del base, heur
 
+                #   calc 99.0% quartiles - doesn't seem to have value as an option
+                baseQ = torch.quantile(baseC.abs(), 0.99)
+                heurQ = torch.quantile(heurC.abs(), 0.99)
+                del baseC, heurC
 
+                if baseQ != 0.0 and heurQ != 0.0:
+                    cond *= (baseQ / heurQ)
+                    uncond *= (baseQ / heurQ)
+#   end: heuristic scaling
 
+                
 #   reinhard tonemap from comfy
             noisePrediction = cond - uncond
             if self.reinhard != 0.0 and self.reinhard != cond_scale:
@@ -139,7 +141,6 @@ class CFGfadeForge(scripts.Script):
                 std = torch.std(noise_pred_vector_magnitude, dim=(1,2,3), keepdim=True)
                 top = (std * 3 + mean) * multiplier
 
-                #reinhard
                 noise_pred_vector_magnitude *= (1.0 / top)
                 new_magnitude = noise_pred_vector_magnitude / (noise_pred_vector_magnitude + 1.0)
                 new_magnitude *= top
@@ -153,17 +154,12 @@ class CFGfadeForge(scripts.Script):
                 ro_pos = torch.std(cond, dim=(1,2,3), keepdim=True)
                 ro_cfg = torch.std(result, dim=(1,2,3), keepdim=True)
 
-                x_rescaled = result * (ro_pos / ro_cfg)
-                result = torch.lerp (result, x_rescaled, self.rcfgmult)
-                del x_rescaled                
+                if ro_pos != 0.0 and ro_cfg != 0.0:
+                    x_rescaled = result * (ro_pos / ro_cfg)
+                    result = torch.lerp (result, x_rescaled, self.rcfgmult)
+                    del x_rescaled                
 #   end: rescaleCFG
             del noisePrediction
-
-
-#subtract mean of result - seems like a free win
-#            if thisStep >= self.antidrfS * lastStep and thisStep < self.antidrfE * lastStep:
-#                result -= result.mean(dim=(1, 2, 3), keepdim=True)
-#                result -= result.mean(dim=(2, 3), keepdim=True)
 
             return result
 
@@ -224,44 +220,40 @@ class CFGfadeForge(scripts.Script):
 
         self.weight = boostWeight * fadeWeight
 
-#   don't have access to change cfg_scale at this point?
-
     def process_before_every_sampling(self, params, *script_args, **kwargs):
-        # This will be called before every sampling.
-        # If you use highres fix, this will be called twice.
-
-        enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowSigma, reinhard, rcfgmult = script_args
+        enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowSigma, reinhard, rcfgmult, heuristic, hStart = script_args
 
         if not enabled:
             return
 
-        self.actualCFG = params.cfg_scale
-
         self.centreMean = cntrMean
-        self.boostStep = boostStep
-        self.highStep = highStep
-        self.maxScale = maxScale
-        self.fadeStep = fadeStep
-        self.zeroStep = zeroStep
-        self.minScale = minScale
-        self.lowSigma = lowSigma
-        self.reinhard = reinhard
-        self.rcfgmult = rcfgmult
+        self.boostStep  = boostStep
+        self.highStep   = highStep
+        self.maxScale   = maxScale
+        self.fadeStep   = fadeStep
+        self.zeroStep   = zeroStep
+        self.minScale   = minScale
+        self.lowSigma   = lowSigma
+        self.reinhard   = reinhard
+        self.rcfgmult   = rcfgmult
+        self.heuristic  = heuristic
+        self.hStart     = hStart
 
-        # Below codes will add some logs to the texts below the image outputs on UI.
-        # The extra_generation_params does not influence results.
+        # logs
         params.extra_generation_params.update(dict(
-            cfgfade_enabled = enabled,
-            cfgfade_cntrMean = cntrMean,
+            cfgfade_enabled   = enabled,
+            cfgfade_cntrMean  = cntrMean,
             cfgfade_boostStep = boostStep,
-            cfgfade_highStep = highStep,
-            cfgfade_maxScale = maxScale,
-            cfgfade_fadeStep = fadeStep,
-            cfgfade_zeroStep = zeroStep,
-            cfgfade_minScale = minScale,
-            cfgfade_lowSigma = lowSigma,
-            cfgfade_reinhard = reinhard,
-            cfgfade_rcfgmult = rcfgmult,
+            cfgfade_highStep  = highStep,
+            cfgfade_maxScale  = maxScale,
+            cfgfade_fadeStep  = fadeStep,
+            cfgfade_zeroStep  = zeroStep,
+            cfgfade_minScale  = minScale,
+            cfgfade_lowSigma  = lowSigma,
+            cfgfade_reinhard  = reinhard,
+            cfgfade_rcfgmult  = rcfgmult,
+            cfgfade_heuristic = heuristic,
+            cfgfade_hStart    = hStart,
         ))
 
         #   must log the parameters before fixing minScale
@@ -276,7 +268,5 @@ class CFGfadeForge(scripts.Script):
         return
 
     def postprocess(self, params, processed, *args):
-        self.weight = 1.0
-
         remove_current_script_callbacks()
 

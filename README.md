@@ -7,9 +7,11 @@ Settings used are saved with metadata, and restored from loading through the **P
 
 ---
 ## Advanced / Details ##
+Heuristic CFG: 0 is disabled. Set higher than actual CFG to increase contrast, details, sharpness; or lower for the opposite. Delaying the start can allow pushing harder, but setting too high will cause burning.
+
 Reinhard Target CFG: 0 is disabled. Uses Reinhard tonemapping to dynamically adjust CFG. Could allow using higher CFGs than normal.
 
-RescaleCFG: 0 is disabled, best seems typically to be 0.5-0.75. Often a free win.
+Rescale CFG: 0 is disabled, best seems typically to be 0.5-0.75. Often a free win.
 
 clamp CFG @ sigma: 0 is disabled. Clamps CFG weighting to the minimum value when the denoising sigma drops below the value selected here. Small effects.
 
