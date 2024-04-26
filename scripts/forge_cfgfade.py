@@ -15,7 +15,8 @@ import torch, math
 class CFGfadeForge(scripts.Script):
     def __init__(self):
         self.weight = 1.0
-        self.lowSigma = 0.0
+        self.lowSigma = 0.28
+        self.highSigma = 5.42
         self.boostStep = 0.0
         self.highStep = 0.5
         self.maxScale = 1.0
@@ -38,24 +39,45 @@ class CFGfadeForge(scripts.Script):
     def ui(self, *args, **kwargs):
         with gr.Accordion(open=False, label=self.title()):
             with gr.Row():
-                enabled = gr.Checkbox(value=False, label='Enable modifications to CFG')
-                cntrMean = gr.Checkbox(value=False, label='centre conds to mean')
+                enabled   = gr.Checkbox(value=False, label='Enable modifications to CFG')
+                cntrMean  = gr.Checkbox(value=False, label='centre conds to mean')
+##            with gr.Row():
+##                heuristic = gr.Slider(minimum=0.0, maximum=16.0, step=0.5,  value=0,   label='Heuristic CFG')
+##                hStart    = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.0, label='... start step')
+##            with gr.Row():
+##                reinhard  = gr.Slider(minimum=0.0, maximum=16.0, step=0.5,  value=0.0, label='Reinhard CFG')
+##                rcfgmult  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.0, label='Rescale CFG')
+##            with gr.Row():
+##                lowCFG1   = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.1, label='CFG 1 until step')
+##                highCFG1  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.8, label='CFG 1 after step')
+##            with gr.Row():
+##                boostStep = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.2, label='CFG boost start')
+##                fadeStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.5, label='CFG fade start')
+##            with gr.Row():
+##                highStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.4, label='\tboost end')
+##                zeroStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.7, label='\tfade end')
+##            with gr.Row():
+##                maxScale  = gr.Slider(minimum=1.0, maximum=4.0,  step=0.01, value=1.0, label='\tboost factor')
+##                minScale  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=1.0, label='\tfade factor')
+
+
             with gr.Row():
-                heuristic = gr.Slider(minimum=0, maximum=16, step=0.5, value=0, label='Heuristic CFG')
-                hStart = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=0.0, label='start step')
-            with gr.Row():
-                reinhard = gr.Slider(minimum=0.0, maximum=16.0, step=0.5, value=0.0, label='Reinhard CFG')
-                rcfgmult = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=0.0, label='Rescale CFG')
-                lowSigma = gr.Slider(minimum=0.0, maximum=2.0, step=0.1, value=0.0, label='clamp CFG σ')
-            with gr.Row():
-                boostStep = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=1.0, label='CFG boost start')
-                fadeStep = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=0.5, label='CFG fade start')
-            with gr.Row():
-                highStep = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=1.0, label='boost end')
-                zeroStep = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=1.0, label='fade end')
-            with gr.Row():
-                maxScale = gr.Slider(minimum=1.0, maximum=4.0, step=0.05, value=2.0, label='maximum weight')
-                minScale = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, value=0.0, label='minimum weight')
+                with gr.Column():
+                    lowCFG1   = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.1, label='CFG 1 until step')
+                    boostStep = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.2, label='CFG boost start step')
+                    highStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.4, label='full boost at step')
+                    fadeStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.5, label='CFG fade start step')
+                    zeroStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.7, label='full fade at step')
+                    highCFG1  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.8, label='CFG 1 after step')
+                with gr.Column():
+                    maxScale  = gr.Slider(minimum=1.0, maximum=4.0,  step=0.01, value=1.0, label='boost factor')
+                    minScale  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=1.0, label='fade factor')
+                    heuristic = gr.Slider(minimum=0.0, maximum=16.0, step=0.5,  value=0,   label='Heuristic CFG')
+                    hStart    = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.0, label='... start step')
+                    reinhard  = gr.Slider(minimum=0.0, maximum=16.0, step=0.5,  value=0.0, label='Reinhard CFG')
+                    rcfgmult  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.0, label='Rescale CFG')
+
+
 
         self.infotext_fields = [
             (enabled, lambda d: enabled.update(value=("cfgfade_enabled" in d))),
@@ -66,14 +88,15 @@ class CFGfadeForge(scripts.Script):
             (fadeStep,  "cfgfade_fadeStep"),
             (zeroStep,  "cfgfade_zeroStep"),
             (minScale,  "cfgfade_minScale"),
-            (lowSigma,  "cfgfade_lowSigma"),
+            (lowCFG1,   "cfgfade_lowCFG1"),
+            (highCFG1,  "cfgfade_highCFG1"),
             (reinhard,  "cfgfade_reinhard"),
             (rcfgmult,  "cfgfade_rcfgmult"),
             (heuristic, "cfgfade_heuristic"),
             (hStart,    "cfgfade_hStart"),
         ]
 
-        return enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowSigma, reinhard, rcfgmult, heuristic, hStart
+        return enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowCFG1, highCFG1, reinhard, rcfgmult, heuristic, hStart
 
 
     def patch(self, model):
@@ -104,7 +127,6 @@ class CFGfadeForge(scripts.Script):
 
             thisStep = shared.state.sampling_step
             lastStep = shared.state.sampling_steps
-
 
 #   perp-neg here?
 
@@ -190,26 +212,29 @@ class CFGfadeForge(scripts.Script):
         thisStep = params.sampling_step
         sigma = params.sigma[0]
 
-        highStep = self.highStep * lastStep
+        lowCFG1   = self.lowCFG1   * lastStep
+        highStep  = self.highStep  * lastStep
         boostStep = self.boostStep * lastStep
-        fadeStep = self.fadeStep * lastStep
-        zeroStep = self.zeroStep * lastStep
+        highCFG1  = self.highCFG1  * lastStep
+        fadeStep  = self.fadeStep  * lastStep
+        zeroStep  = self.zeroStep  * lastStep
 
-        if thisStep > highStep:
-            boostWeight = self.maxScale
-        elif thisStep <= boostStep:
+        if thisStep < lowCFG1:
+            boostWeight = 0.0
+        elif thisStep < boostStep:
             boostWeight = 1.0
+        elif thisStep >= highStep:
+            boostWeight = self.maxScale
         else:
             boostWeight = 1.0 + (self.maxScale - 1.0) * ((thisStep - boostStep) / (highStep - boostStep))
 
-
-        if sigma < self.lowSigma:
-            fadeWeight = self.minScale
+        if thisStep > highCFG1:
+            fadeWeight = 0.0
         else:
-            if thisStep >= zeroStep:
-                fadeWeight = 0.0
-            elif thisStep < fadeStep:
+            if thisStep < fadeStep:
                 fadeWeight = 1.0
+            elif thisStep >= zeroStep:
+                fadeWeight = 0.0
             else:
                 fadeWeight = 1.0 - (thisStep - fadeStep) / (zeroStep  - fadeStep)
 
@@ -220,8 +245,9 @@ class CFGfadeForge(scripts.Script):
 
         self.weight = boostWeight * fadeWeight
 
+
     def process_before_every_sampling(self, params, *script_args, **kwargs):
-        enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowSigma, reinhard, rcfgmult, heuristic, hStart = script_args
+        enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowCFG1, highCFG1, reinhard, rcfgmult, heuristic, hStart = script_args
 
         if not enabled:
             return
@@ -233,7 +259,8 @@ class CFGfadeForge(scripts.Script):
         self.fadeStep   = fadeStep
         self.zeroStep   = zeroStep
         self.minScale   = minScale
-        self.lowSigma   = lowSigma
+        self.lowCFG1    = lowCFG1
+        self.highCFG1   = highCFG1
         self.reinhard   = reinhard
         self.rcfgmult   = rcfgmult
         self.heuristic  = heuristic
@@ -249,7 +276,8 @@ class CFGfadeForge(scripts.Script):
             cfgfade_fadeStep  = fadeStep,
             cfgfade_zeroStep  = zeroStep,
             cfgfade_minScale  = minScale,
-            cfgfade_lowSigma  = lowSigma,
+            cfgfade_lowCFG1   = lowCFG1,
+            cfgfade_highCFG1  = highCFG1,
             cfgfade_reinhard  = reinhard,
             cfgfade_rcfgmult  = rcfgmult,
             cfgfade_heuristic = heuristic,

@@ -7,19 +7,19 @@ Settings used are saved with metadata, and restored from loading through the **P
 
 ---
 ## Advanced / Details ##
-Heuristic CFG: 0 is disabled. Set higher than actual CFG to increase contrast, details, sharpness; or lower for the opposite. Delaying the start can allow pushing harder, but setting too high will cause burning.
+centre conds to mean: a simple calculation to keep channel average centered around zero. Often seems like a free quality win.
 
-Reinhard Target CFG: 0 is disabled. Uses Reinhard tonemapping to dynamically adjust CFG. Could allow using higher CFGs than normal.
-
-Rescale CFG: 0 is disabled, best seems typically to be 0.5-0.75. Often a free win.
-
-clamp CFG @ sigma: 0 is disabled. Clamps CFG weighting to the minimum value when the denoising sigma drops below the value selected here. Small effects.
+CFG 1 until/after step: Sets CFG to 1.0 for early/late steps. Normally seen based on sigmas, but done by step here for consistency with the other settings. This is higher priority than boosting/fading.
 
 CFG boost: a linear scaling increase to weight applied to CFG
 
 CFG fade: a linear scaling decrease to weight applied to CFG. Ranges of boost/fade can overlap.
 
-anti drift of latents: a simple calculation to keep channel average centered around zero. Often seems like a free quality win. Most changes occurs in the earlier steps.
+Heuristic CFG: 0 is disabled. Set higher than actual CFG to increase contrast, details, sharpness; or lower for the opposite. Delaying the start can allow pushing harder, but setting too high will cause burning.
+
+Reinhard Target CFG: 0 is disabled. Uses Reinhard tonemapping to dynamically adjust CFG. Could allow using higher CFGs than normal.
+
+Rescale CFG: 0 is disabled, best seems typically to be 0.5-0.75. Often a free win.
 
 
 ---
