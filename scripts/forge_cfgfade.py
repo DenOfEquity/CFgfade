@@ -62,20 +62,23 @@ class CFGfadeForge(scripts.Script):
 
 
             with gr.Row():
-                with gr.Column():
-                    lowCFG1   = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.1, label='CFG 1 until step')
-                    boostStep = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.2, label='CFG boost start step')
-                    highStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.4, label='full boost at step')
-                    fadeStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.5, label='CFG fade start step')
-                    zeroStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.7, label='full fade at step')
-                    highCFG1  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.8, label='CFG 1 after step')
-                with gr.Column():
-                    maxScale  = gr.Slider(minimum=1.0, maximum=4.0,  step=0.01, value=1.0, label='boost factor')
-                    minScale  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=1.0, label='fade factor')
-                    heuristic = gr.Slider(minimum=0.0, maximum=16.0, step=0.5,  value=0,   label='Heuristic CFG')
-                    hStart    = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.0, label='... start step')
-                    reinhard  = gr.Slider(minimum=0.0, maximum=16.0, step=0.5,  value=0.0, label='Reinhard CFG')
-                    rcfgmult  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.0, label='Rescale CFG')
+                lowCFG1   = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.1, label='CFG 1 until step')
+                maxScale  = gr.Slider(minimum=1.0, maximum=4.0,  step=0.01, value=1.0, label='boost factor')
+            with gr.Row():
+                boostStep = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.2, label='CFG boost start step')
+                minScale  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=1.0, label='fade factor')
+            with gr.Row():
+                highStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.4, label='full boost at step')
+                heuristic = gr.Slider(minimum=0.0, maximum=16.0, step=0.5,  value=0,   label='Heuristic CFG')
+            with gr.Row():
+                fadeStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.5, label='CFG fade start step')
+                hStart    = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.0, label='... start step')
+            with gr.Row():
+                zeroStep  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.7, label='full fade at step')
+                reinhard  = gr.Slider(minimum=0.0, maximum=16.0, step=0.5,  value=0.0, label='Reinhard CFG')
+            with gr.Row():
+                highCFG1  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.8, label='CFG 1 after step')
+                rcfgmult  = gr.Slider(minimum=0.0, maximum=1.0,  step=0.01, value=0.0, label='Rescale CFG')
 
 
 
