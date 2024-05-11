@@ -1,6 +1,13 @@
 # CFG fade #
 ### extension for Forge webui for Stable Diffusion ###
 ---
+## Install ##
+Go to the **Extensions** tab, then **Install from URL**, use the URL for this repository.
+
+--- 
+![](screenshot.png "image of extension UI")
+
+---
 ## Basic usage ##
 A variety of ways to adjust CFG dynamically. Some are effective.
 Settings used are saved with metadata, and restored from loading through the **PNG Info** tab.
