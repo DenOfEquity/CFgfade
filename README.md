@@ -1,10 +1,16 @@
 # CFG fade #
 ### extension for Forge webui for Stable Diffusion ###
+
 ---
 ## Install ##
 Go to the **Extensions** tab, then **Install from URL**, use the URL for this repository.
 
---- 
+---
+### update 15/05/2024 ###
+Now I also patch the main sampling function, to calculate the new CFG there. This means that processing of the uncond can be skipped for low CFG, which is a free performance gain. Speed up depends on proportion of steps that end up with CFG <= 1.0. As far as CFG boost/fade is concerned, results are identical. Heuristic CFG and Reinhard CFG use the uncond for their calculations, but now they have to be skipped on steps when it is not available, so results from them can change. The difference seems minor; I tested an option to force uncond calculation but decided it was unnecessary.
+
+---
+### screenshot of UI ###
 ![](screenshot.png "image of extension UI")
 
 ---
