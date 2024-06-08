@@ -139,7 +139,7 @@ class CFGfadeForge(scripts.Script):
 
             if self.centreMean == True:     # better after, but value here too?
                 for b in range(len(cond)):
-                    for c in range(3):
+                    for c in range(4):
                         cond[b][c] -= cond[b][c].mean()
                         uncond[b][c] -= uncond[b][c].mean()
 
