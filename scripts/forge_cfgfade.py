@@ -117,8 +117,8 @@ class CFGfadeForge(scripts.Script):
             return cfg_result
 
     def patch(self, model):
-        sigmin = model.model.model_sampling.sigma(model.model.model_sampling.timestep(model.model.model_sampling.sigma_min))
-        sigmax = model.model.model_sampling.sigma(model.model.model_sampling.timestep(model.model.model_sampling.sigma_max))
+#        sigmin = model.model.model_sampling.sigma(model.model.model_sampling.timestep(model.model.model_sampling.sigma_min))
+#        sigmax = model.model.model_sampling.sigma(model.model.model_sampling.timestep(model.model.model_sampling.sigma_max))
 
         def sampler_cfgfade(args):
             cond = args["cond"]
@@ -224,20 +224,20 @@ class CFGfadeForge(scripts.Script):
             boostWeight = 0.0
         elif thisStep < boostStep:
             boostWeight = 1.0
-        elif thisStep >= highStep:
-            boostWeight = self.maxScale
-        else:
+        elif thisStep < highStep:
             boostWeight = 1.0 + (self.maxScale - 1.0) * ((thisStep - boostStep) / (highStep - boostStep))
+        else:
+            boostWeight = self.maxScale
 
         if thisStep > highCFG1:
             fadeWeight = 0.0
         else:
             if thisStep < fadeStep:
                 fadeWeight = 1.0
-            elif thisStep >= zeroStep:
-                fadeWeight = 0.0
-            else:
+            elif thisStep < zeroStep:
                 fadeWeight = 1.0 - (thisStep - fadeStep) / (zeroStep  - fadeStep)
+            else:
+                fadeWeight = 0.0
 
             # at this point, weight is in the range 0.0->1.0
             fadeWeight *= (1.0 - self.minScale)
@@ -248,6 +248,15 @@ class CFGfadeForge(scripts.Script):
 
 
     def process_before_every_sampling(self, params, *script_args, **kwargs):
+        enabled = script_args[0]
+        if enabled:
+            unet = params.sd_model.forge_objects.unet
+            unet = CFGfadeForge.patch(self, unet)[0]
+            params.sd_model.forge_objects.unet = unet
+
+        return
+
+    def process(self, params, *script_args, **kwargs):
         enabled, cntrMean, boostStep, highStep, maxScale, fadeStep, zeroStep, minScale, lowCFG1, highCFG1, reinhard, rcfgmult, heuristic, hStart = script_args
 
         if not enabled:
@@ -291,19 +300,10 @@ class CFGfadeForge(scripts.Script):
 
         on_cfg_denoiser(self.denoiser_callback)
 
-        unet = params.sd_model.forge_objects.unet
-        unet = CFGfadeForge.patch(self, unet)[0]
-        params.sd_model.forge_objects.unet = unet
+        if CFGfadeForge.backup_sampling_function == None:
+            CFGfadeForge.backup_sampling_function = modules_forge.forge_sampler.sampling_function
 
-        return
-
-    def process(self, params, *script_args, **kwargs):
-        enabled = script_args[0]
-        if enabled:
-            if CFGfadeForge.backup_sampling_function == None:
-                CFGfadeForge.backup_sampling_function = modules_forge.forge_sampler.sampling_function
-
-            modules_forge.forge_sampler.sampling_function = CFGfadeForge.sampling_function
+        modules_forge.forge_sampler.sampling_function = CFGfadeForge.sampling_function
         return
 
     def postprocess(self, params, processed, *args):
@@ -312,6 +312,6 @@ class CFGfadeForge(scripts.Script):
             if CFGfadeForge.backup_sampling_function != None:
                 modules_forge.forge_sampler.sampling_function = CFGfadeForge.backup_sampling_function
 
-            remove_current_script_callbacks()
+        remove_current_script_callbacks()
         return
 
